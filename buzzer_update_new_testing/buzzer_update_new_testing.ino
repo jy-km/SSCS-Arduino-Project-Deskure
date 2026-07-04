@@ -50,7 +50,7 @@ unsigned long imuLastUpdate = 0;
 unsigned long envLastUpdate = 0;
 unsigned long postureBadStart = 0; // CRITICAL: IMU Hysteresis timer
 unsigned long lastPageSwap = 0;    // Tracks the 3-second LCD alternating cycle
-
+unsigned long currentMillis = 0;
 
 const unsigned long imuInterval = 50;  
 const unsigned long envInterval = 100;
@@ -117,72 +117,84 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 void setup() {
   Serial.begin(115200);
-  Wire.begin();
+  delay(500); // give serial monitor time to attach
+  Serial.println("1. Serial started");
 
+  Wire.begin();
+  Serial.println("2. Wire started");
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
   digitalWrite(buzzerPin, LOW);
 
-
   lcd.init();
   lcd.backlight();
   lcd.setCursor(0, 0);
   lcd.print("System Ready...");
+  Serial.println("3. LCD initialized");
 
-  // Create the BLE Server
-  BLEDevice::init("Deskure");           // add this line
+  BLEDevice::init("Deskure");   // add this if missing
+  Serial.println("4. BLEDevice::init done");
+
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
+  Serial.println("5. BLE server created");
 
-  // Create the BLE Service
   BLEService *pService = pServer->createService(SERVICE_UUID);
+  Serial.println("6. BLE service created");
 
-  // Create a BLE Characteristic
   pCharacteristic = pService->createCharacteristic(
                       CHARACTERISTIC_UUID,
                       BLECharacteristic::PROPERTY_NOTIFY
-                    );                   
+                    );
+  Serial.println("7. Characteristic created");
 
-  // Create a BLE Descriptor
   pDescr = new BLEDescriptor((uint16_t)0x2901);
   pDescr->setValue("A very interesting variable");
   pCharacteristic->addDescriptor(pDescr);
-  
+
   pBLE2902 = new BLE2902();
   pBLE2902->setNotifications(true);
   pCharacteristic->addDescriptor(pBLE2902);
+  Serial.println("8. Descriptors added");
 
-  // Start the service
   pService->start();
+  Serial.println("9. Service started");
 
-  // Start advertising
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
   BLEAdvertisementData scanResponseData;
-  scanResponseData.setName("Deskure"); //change this to whatever name we want
+  scanResponseData.setName("Deskure");
   pAdvertising->setScanResponseData(scanResponseData);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  pAdvertising->setMinPreferred(0x0);
   BLEDevice::startAdvertising();
-  Serial.println("Waiting a client connection to notify...");
+  Serial.println("10. Advertising started");
 
-  // Initialize IMU
   if (!lsm6ds3trc.begin_I2C() || !lis3mdl.begin_I2C()) {
+    Serial.println("11. IMU INIT FAILED");
     lcd.clear();
     lcd.print("IMU Init Fail");
     while (1);
   }
-
+  Serial.println("11. IMU init OK");
 
   filter.begin(1000.0 / imuInterval);
+  Serial.println("12. Filter begin OK");
   delay(1000);
+  Serial.println("13. Setup complete, entering loop");
 }
 
 
 void loop() {
-  unsigned long currentMillis = millis();
+  static unsigned long lastHeartbeat = 0;
+  if (millis() - lastHeartbeat > 2000) {
+    Serial.println("loop alive");
+    lastHeartbeat = millis();
+  }
+
+  currentMillis = millis();
 
 
   // ---------------------------------------------------------

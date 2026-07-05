@@ -1,3 +1,4 @@
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <BLEDevice.h>
@@ -64,7 +65,9 @@ int currentPage = 0;
 //global variables for Bluetooth transmission--all declared here
 float distanceCm;
 int lightValue;
-float pitch;
+pitch = filter.getPitch();
+Serial.println(pitch);    // <-- add this line
+
 
 // Buzzer Activation (0.2 seconds non-blocking)
 void beep() {
